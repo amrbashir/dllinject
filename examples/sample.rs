@@ -87,7 +87,7 @@ fn run_target_and_inject(
         .map(PathBuf::from)
         .unwrap_or_else(|_| manifest_dir.join("target"));
 
-    println!("[*][HOST] Building target executable");
+    println!("[*][HOST] Building target executable {target_arch}-bit");
     let status = Command::new("cargo")
         .args(&["build", "--example", "target", "--target", target])
         .current_dir(&manifest_dir)
