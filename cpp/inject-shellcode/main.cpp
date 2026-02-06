@@ -189,28 +189,13 @@ typedef struct __PEB // 65 elements, 0x210 bytes
 } _PEB, * _PPEB;
 
 
-struct LOAD_LIBRARY_REMOTE_DATA {
-	INT32 nLogVerbosity;
-	BOOL bRunningFromAPC;
-	union {
-		HANDLE hSessionManagerProcess;
-		DWORD64 dw64SessionManagerProcess; // make sure 32-bit/64-bit layouts are the same
-	};
-	union {
-		HANDLE hSessionMutex;
-		DWORD64 dw64SessionMutex; // make sure 32-bit/64-bit layouts are the same
-	};
-	WCHAR szDllName[1]; // flexible array member
-};
+
 
 
 __declspec(dllexport)
-void* __stdcall InjectShellcode(void* pParameter)
+void* __stdcall InjectShellcode(wchar_t* dllName)
 {
-	LOAD_LIBRARY_REMOTE_DATA* pInjData = (LOAD_LIBRARY_REMOTE_DATA*)pParameter;
 	HMODULE hModule;
-	char szInjectInit[] = { 'I', 'n', 'j', 'e', 'c', 't', 'I', 'n', 'i', 't', '\0' };
-	void* pInjectInit;
 
 	//////////////////////////////////////////////////////////////////////////
 	// Based on code from ImprovedReflectiveDLLInjection
@@ -377,9 +362,6 @@ void* __stdcall InjectShellcode(void* pParameter)
 		return pVirtualFree;
 	}
 
-	INT32 nLogVerbosity = pInjData->nLogVerbosity;
-	BOOL bInitAttempted = FALSE;
-	BOOL bInitSucceeded = FALSE;
 	DWORD dwLastErrorValue = 0;
 	DWORD dwOldMode;
 
@@ -389,87 +371,44 @@ void* __stdcall InjectShellcode(void* pParameter)
 	// https://stackoverflow.com/q/38367847
 	pSetThreadErrorMode(SEM_FAILCRITICALERRORS, &dwOldMode);
 
-	if (nLogVerbosity >= 2)
-	{
-		char szLoadLibraryMessage[] = { '[', 'W', 'H', ']', ' ', 'L', 'L', '\n', '\0' };
-		pOutputDebugStringA(szLoadLibraryMessage);
-	}
+	char szLoadLibraryMessage[] = { '[', 'W', 'H', ']', ' ', 'L', 'L', '\n', '\0' };
+	pOutputDebugStringA(szLoadLibraryMessage);
 
-	hModule = pLoadLibraryW(pInjData->szDllName);
+	hModule = pLoadLibraryW(dllName);
 	if (hModule)
 	{
-		if (nLogVerbosity >= 2)
-		{
-			char szGetProcAddressMessage[] = { '[', 'W', 'H', ']', ' ', 'G', 'P', 'A', '\n', '\0' };
-			pOutputDebugStringA(szGetProcAddressMessage);
-		}
-
-		pInjectInit = pGetProcAddress(hModule, szInjectInit);
-		if (pInjectInit)
-		{
-			if (nLogVerbosity >= 2)
-			{
-				char szInjectInitMessage[] = { '[', 'W', 'H', ']', ' ', 'I', 'I', '\n', '\0' };
-				pOutputDebugStringA(szInjectInitMessage);
-			}
-
-			bInitAttempted = TRUE;
-			bInitSucceeded = ((BOOL(*)(BOOL, HANDLE, HANDLE))pInjectInit)(
-				pInjData->bRunningFromAPC, (HANDLE)pInjData->hSessionManagerProcess, (HANDLE)pInjData->hSessionMutex);
-
-			if (nLogVerbosity >= 2)
-			{
-				char szInjectInitResultMessage[] = { '[', 'W', 'H', ']', ' ', 'I', 'I', ':', ' ', bInitSucceeded ? '1' : '0', '\n', '\0' };
-				pOutputDebugStringA(szInjectInitResultMessage);
-			}
-		}
-		else
-		{
-			dwLastErrorValue = pGetLastError();
-		}
+		char szGetProcAddressMessage[] = { '[', 'W', 'H', ']', ' ', 'G', 'P', 'A', '\n', '\0' };
+		pOutputDebugStringA(szGetProcAddressMessage);
 
 		pFreeLibrary(hModule);
 	}
 	else
 	{
 		dwLastErrorValue = pGetLastError();
-	}
+		
+		char szLastErrorMessage[] = { '[', 'W', 'H', ']', ' ', 'E', 'R', 'R', ':', ' ', '1', '1', '1', '1', '1', '1', '1', '1', '\n', '\0' };
+		char* pHex = szLastErrorMessage + sizeof(szLastErrorMessage) - 2;
 
-	if (!bInitSucceeded)
-	{
-		if (pInjData->hSessionMutex)
+		for (int i = 0; i < 8; i++)
 		{
-			pCloseHandle(pInjData->hSessionMutex);
-		}
-
-		pCloseHandle(pInjData->hSessionManagerProcess);
-
-		if (!bInitAttempted && nLogVerbosity >= 1)
-		{
-			char szLastErrorMessage[] = { '[', 'W', 'H', ']', ' ', 'E', 'R', 'R', ':', ' ', '1', '1', '1', '1', '1', '1', '1', '1', '\n', '\0' };
-			char* pHex = szLastErrorMessage + sizeof(szLastErrorMessage) - 2;
-
-			for (int i = 0; i < 8; i++)
+			int digit = dwLastErrorValue & 0x0F;
+			char letter;
+			if (digit < 0x0A)
 			{
-				int digit = dwLastErrorValue & 0x0F;
-				char letter;
-				if (digit < 0x0A)
-				{
-					letter = digit + '0';
-				}
-				else
-				{
-					letter = digit - 0x0A + 'A';
-				}
-
-				pHex--;
-				*pHex = letter;
-
-				dwLastErrorValue >>= 4;
+				letter = digit + '0';
+			}
+			else
+			{
+				letter = digit - 0x0A + 'A';
 			}
 
-			pOutputDebugStringA(szLastErrorMessage);
+			pHex--;
+			*pHex = letter;
+
+			dwLastErrorValue >>= 4;
 		}
+
+		pOutputDebugStringA(szLastErrorMessage);
 	}
 
 	pSetThreadErrorMode(dwOldMode, NULL);
@@ -484,6 +423,6 @@ int CALLBACK wWinMain(
 	_In_ int       nCmdShow
 )
 {
-	InjectShellcode((void*)sizeof(LOAD_LIBRARY_REMOTE_DATA));
+	InjectShellcode(L"test.dll");
 	return 0;
 }
