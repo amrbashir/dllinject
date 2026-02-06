@@ -44,7 +44,6 @@
 
 #define LOADLIBRARYW_HASH               0xEC0E4EA4
 #define GETPROCADDRESS_HASH             0x7C0DFCAA
-#define FREELIBRARY_HASH                0x4DC9D5A0
 #define VIRTUALFREE_HASH                0x030633AC
 #define GETLASTERROR_HASH               0x75DA1966
 #define OUTPUTDEBUGSTRINGA_HASH         0x470D22BC
@@ -203,7 +202,6 @@ void* __stdcall InjectShellcode(wchar_t* dllName)
 	// the functions we need
 	decltype(&LoadLibraryW) pLoadLibraryW = NULL;
 	decltype(&GetProcAddress) pGetProcAddress = NULL;
-	decltype(&FreeLibrary) pFreeLibrary = NULL;
 	decltype(&VirtualFree) pVirtualFree = NULL;
 	decltype(&GetLastError) pGetLastError = NULL;
 	decltype(&OutputDebugStringA) pOutputDebugStringA = NULL;
@@ -303,7 +301,6 @@ void* __stdcall InjectShellcode(wchar_t* dllName)
 				// if we have found a function we want we get its virtual address
 				if (dwHashValue == LOADLIBRARYW_HASH ||
 					dwHashValue == GETPROCADDRESS_HASH ||
-					dwHashValue == FREELIBRARY_HASH ||
 					dwHashValue == VIRTUALFREE_HASH ||
 					dwHashValue == GETLASTERROR_HASH ||
 					dwHashValue == OUTPUTDEBUGSTRINGA_HASH ||
@@ -321,8 +318,6 @@ void* __stdcall InjectShellcode(wchar_t* dllName)
 						pLoadLibraryW = (decltype(pLoadLibraryW))(uiBaseAddress + DEREF_32(uiAddressArray));
 					else if (dwHashValue == GETPROCADDRESS_HASH)
 						pGetProcAddress = (decltype(pGetProcAddress))(uiBaseAddress + DEREF_32(uiAddressArray));
-					else if (dwHashValue == FREELIBRARY_HASH)
-						pFreeLibrary = (decltype(pFreeLibrary))(uiBaseAddress + DEREF_32(uiAddressArray));
 					else if (dwHashValue == VIRTUALFREE_HASH)
 						pVirtualFree = (decltype(pVirtualFree))(uiBaseAddress + DEREF_32(uiAddressArray));
 					else if (dwHashValue == GETLASTERROR_HASH)
@@ -350,14 +345,14 @@ void* __stdcall InjectShellcode(wchar_t* dllName)
 		}
 
 		// we stop searching when we have found everything we need.
-		if (pLoadLibraryW && pGetProcAddress && pFreeLibrary && pVirtualFree && pGetLastError && pOutputDebugStringA && pCloseHandle && pSetThreadErrorMode)
+		if (pLoadLibraryW && pGetProcAddress && pVirtualFree && pGetLastError && pOutputDebugStringA && pCloseHandle && pSetThreadErrorMode)
 			break;
 
 		// get the next entry
 		pleInLoadIter = pleInLoadIter->Flink;
 	}
 
-	if (!pLoadLibraryW || !pGetProcAddress || !pFreeLibrary || !pVirtualFree || !pGetLastError || !pOutputDebugStringA || !pCloseHandle || !pSetThreadErrorMode)
+	if (!pLoadLibraryW || !pGetProcAddress || !pVirtualFree || !pGetLastError || !pOutputDebugStringA || !pCloseHandle || !pSetThreadErrorMode)
 	{
 		return pVirtualFree;
 	}
@@ -380,7 +375,6 @@ void* __stdcall InjectShellcode(wchar_t* dllName)
 		char szGetProcAddressMessage[] = { '[', 'W', 'H', ']', ' ', 'G', 'P', 'A', '\n', '\0' };
 		pOutputDebugStringA(szGetProcAddressMessage);
 
-		pFreeLibrary(hModule);
 	}
 	else
 	{
