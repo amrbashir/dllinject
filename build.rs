@@ -14,7 +14,6 @@ fn main() {
     build.include(cpp_path.as_path());
     build.include(libraries_path.as_path());
     build.include(libraries_path.join("wil"));
-    build.define("UNICODE", Some("1"));
 
     // Add wow64ext.cpp only for 32-bit Windows target
     if target.as_str() == "i686-pc-windows-msvc" {

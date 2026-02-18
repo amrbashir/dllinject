@@ -18,8 +18,8 @@ fn main() {
         std::thread::sleep(std::time::Duration::from_secs(1));
 
         counter += 1;
-        if counter >= 2 {
-            println!("  [*][Target][{arch}] application is exiting after 2 seconds.");
+        if counter >= 5 {
+            println!("  [*][Target][{arch}] application is exiting after 5 seconds.");
             break;
         }
     }

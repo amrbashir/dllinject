@@ -1,5 +1,13 @@
 #pragma once
 
+#ifndef UNICODE
+#define UNICODE 1
+#endif
+
+#ifndef WIL_ENABLE_EXCEPTIONS
+#define WIL_ENABLE_EXCEPTIONS 1
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 

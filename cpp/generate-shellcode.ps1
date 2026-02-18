@@ -161,11 +161,11 @@ function Get-Shellcode {
 
 function Format-Bytes {
     param([byte[]]$Bytes)
-    $lines = @(); $line = "	`""; $n = 0
+    $lines = @(); $line = "`""; $n = 0
     foreach ($b in $Bytes) {
         $line += "\x{0:X2}" -f $b; $n++
         if ($n % 15 -eq 0 -and $n -lt $Bytes.Length) {
-            $lines += $line + '"' ; $line = "	`""
+            $lines += $line + '"' ; $line = "`t`t`""
         }
     }
     $lines += $line + '";' ;
@@ -189,11 +189,40 @@ $x64 = Get-Shellcode (Join-Path $projectDir "x64\Release\inject-shellcode.exe")
 Write-Host "Updating main.cpp..." -ForegroundColor Yellow
 $content = Get-Content $MainCppPath -Raw
 
-$content = [regex]::Replace($content, '(?s)(x32Shellcode\[\] =\s*)(?:"[^"]*"\s*)+;', 
-    "`${1}$(Format-Bytes $x32)")
+# Regex to find the following patterns and replace with new shellcode:
+#	const BYTE x32APCShellcode[] =
+#		PRE_X32SHELLCODE_ARGS_3_TO_1
+#		PRE_X32SHELLCODE_VIRTUAL_FREE
+#		"\x55\x8B\xEC\x83\xEC\x74\x33\xC0\x89\x45\xF0\x89\x45\xE0\x89"
+#	    ...
+$x32Pattern = @'
+(?s)(x32APCShellcode\[\] =)\s*PRE_X32SHELLCODE_ARGS_3_TO_1\s*PRE_X32SHELLCODE_VIRTUAL_FREE(?:\s*"[^"]*")+;
+'@
 
-$content = [regex]::Replace($content, '(?s)(x64Shellcode\[\] =\s*)PRE_X64SHELLCODE_VIRTUAL_FREE(?:\s*"[^"]*")+;', 
-    "`${1}PRE_X64SHELLCODE_VIRTUAL_FREE`r`n$(Format-Bytes $x64)")
+$x32Replacement = @"
+`${1}
+`t`tPRE_X32SHELLCODE_ARGS_3_TO_1
+`t`tPRE_X32SHELLCODE_VIRTUAL_FREE
+`t`t$(Format-Bytes $x32)
+"@
+
+# Regex to find the following patterns and replace with new shellcode:
+#	const BYTE x64Shellcode[] =
+#		PRE_X64SHELLCODE_VIRTUAL_FREE
+#		"\x48\x89\x4C\x24\x08\x55\x53\x56\x57\x41\x54\x41\x55\x41\x56"
+#       ...
+$x64Pattern = @'
+(?s)(x64Shellcode\[\] =)\s*PRE_X64SHELLCODE_VIRTUAL_FREE(?:\s*"[^"]*")+;
+'@
+
+$x64Replacement = @"
+`${1}
+`t`tPRE_X64SHELLCODE_VIRTUAL_FREE
+`t`t$(Format-Bytes $x64)
+"@
+
+$content = [regex]::Replace($content, $x32Pattern, $x32Replacement)
+$content = [regex]::Replace($content, $x64Pattern, $x64Replacement)
 
 Set-Content $MainCppPath $content -NoNewline
 
