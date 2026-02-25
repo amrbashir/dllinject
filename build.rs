@@ -22,5 +22,9 @@ fn main() {
         build.file(libraries_path.join("wow64ext/wow64ext.cpp"));
     }
 
+    if cfg!(feature = "static_crt") {
+        build.static_crt(true);
+    }
+
     build.compile("dllinject-cpp");
 }
